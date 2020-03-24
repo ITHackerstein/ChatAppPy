@@ -46,23 +46,35 @@ def readline(prompt=""):
 	input_w.refresh()
 
 	input_w.attroff(curses.A_REVERSE)
-	return line
+	return line.decode()
 
 class Message:
 	def __init__(self, from_, body):
 		self.from_ = from_
 		self.body = body
 
+class SystemMessage:
+	def __init__(self, type_, body):
+		self.type_ = type_
+		self.body = body
+
 def print_messages():
+	messages_w.move(0, 0)
+	messages_w.clear()
 	for i, msg in enumerate(messages):
-		messages_w.move(i, 0)
-		messages_w.clrtoeol()
+		if type(msg) == SystemMessage:
+			if msg.type_ == "Error":
+				messages_w.attron(curses.color_pair(1))
+				messages_w.addstr(msg.body + "\n")
+				messages_w.attroff(curses.color_pair(1))
+				continue
+
 
 		messages_w.addstr("[ ")
 		messages_w.attron(curses.color_pair(1))
 		messages_w.addstr(msg.from_)
 		messages_w.attroff(curses.color_pair(1))
-		messages_w.addstr(" ] %s" % (msg.body))
+		messages_w.addstr(" ] %s\n" % (msg.body))
 
 		messages_w.refresh()
 
@@ -78,6 +90,17 @@ def receive_msg():
 			messages.append(Message(username, msg))
 			print_messages()
 
+def parse_command(cmd):
+	if cmd == "quit":
+		sock.sendall(chr(MsgTypes.CloseConnection).encode())
+		sys.exit(0)
+	else:
+		body = "'%s' is not a valid command! Type '/help' for a list" % (cmd)
+		messages.append(SystemMessage("Error", body))
+		print_messages()
+
+		messages_w.refresh()
+
 sock.connect((HOST, PORT))
 my_username = send_username(my_username)
 
@@ -86,4 +109,7 @@ receive_msg_t.start()
 
 while True:
 	msg = readline(" %s > " % (my_username))
-	sock.sendall(chr(MsgTypes.SendMsg).encode() + msg)
+	if msg[0] == '/':
+		parse_command(msg[1:])
+	else:
+		sock.sendall(chr(MsgTypes.SendMsg).encode() + msg.encode())

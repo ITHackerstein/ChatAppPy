@@ -1,12 +1,15 @@
 import struct
 import os
+import sys
 import socket
 import threading
 from enum import IntEnum
 from msgtypes import MsgTypes
 from random import randint
 
-HOST, PORT = "localhost", 5555
+HOST = sys.argv[1] if len(sys.argv) >= 3 else input("Enter the address of the server: ")
+PORT = int(sys.argv[2]) if len(sys.argv) >= 3 else int(input("Enter the port of the server: "))
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 connected_devices = []
 

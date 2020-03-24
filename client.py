@@ -7,6 +7,8 @@ from enum import IntEnum
 from msgtypes import MsgTypes
 
 my_username = sys.argv[1] if len(sys.argv) >= 2 else input("Enter your username: ")
+HOST = sys.argv[2] if len(sys.argv) >= 4 else input("Enter the address of the server: ")
+PORT = int(sys.argv[3]) if len(sys.argv) >= 4 else int(input("Enter the port of the server: "))
 
 curses.initscr()
 curses.start_color()
@@ -18,7 +20,6 @@ twidth, theight = os.get_terminal_size()
 messages_w = curses.newwin(theight - 1, twidth, 0, 0)
 input_w = curses.newwin(1, twidth, theight - 1, 0)
 
-HOST, PORT = "localhost", 5555
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 messages = []

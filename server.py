@@ -1,6 +1,6 @@
-import struct
 import os
 import sys
+import struct
 import socket
 import threading
 from enum import IntEnum
@@ -27,12 +27,27 @@ class Device:
 			if type_ == MsgTypes.CloseConnection:
 				print("[{}:{}] Connection closed!".format(*self.conn.getpeername()))
 				self.conn.close()
+
+				for device in connected_devices:
+					if device.conn.fileno() == -1:
+						continue
+
+					content = "%s left the chat!\n" % (self.username)
+					packed_length = struct.pack("H", len(content))
+					device.conn.sendall(chr(MsgTypes.Notification).encode() + packed_length + content.encode())
 			elif type_ == MsgTypes.OpenConnection:
 				username_len = ord(self.conn.recv(1))
 				username = self.conn.recv(username_len).decode()
 
 				self.username = "%s#%04d" % (username, randint(0, 9999))
 				self.conn.sendall(chr(MsgTypes.UsernameSet).encode() + chr(len(self.username)).encode() + self.username.encode())
+				for device in connected_devices:
+					if device.conn.fileno() == -1:
+						continue
+
+					content = "%s joined the chat!\n" % (self.username)
+					packed_length = struct.pack("H", len(content))
+					device.conn.sendall(chr(MsgTypes.Notification).encode() + packed_length + content.encode())
 
 				print("[{}:{}] Connected with username {}".format(*self.conn.getpeername(), self.username))
 			elif type_ == MsgTypes.SendMsg:
@@ -41,7 +56,8 @@ class Device:
 					continue
 
 				for device in connected_devices:
-					device.conn.sendall(chr(MsgTypes.RecvMsg).encode() + chr(len(self.username)).encode() + self.username.encode() + msg)
+					if device.conn.fileno() != -1:
+						device.conn.sendall(chr(MsgTypes.RecvMsg).encode() + chr(len(self.username)).encode() + self.username.encode() + msg)
 			else:
 				pass
 

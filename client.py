@@ -1,5 +1,6 @@
 import os
 import sys
+import struct
 import threading
 import socket
 import curses
@@ -14,6 +15,7 @@ curses.initscr()
 curses.start_color()
 
 curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
 
 twidth, theight = os.get_terminal_size()
 
@@ -23,6 +25,34 @@ input_w = curses.newwin(1, twidth, theight - 1, 0)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 messages = []
+
+class Message:
+	def __init__(self, from_, body):
+		self.from_ = from_
+		self.body = body
+
+	def draw_message(self):
+		messages_w.addstr("[ ")
+		attr = curses.color_pair(0)
+		if self.from_ == my_username:
+			attr = curses.color_pair(1)
+		messages_w.addstr(self.from_, attr)
+		messages_w.addstr(" ] %s\n" % (self.body))
+
+
+class SystemMessage:
+	def __init__(self, type_, body):
+		self.type_ = type_
+		self.body = body
+
+	def draw_message(self):
+		attr = curses.color_pair(0)
+		if self.type_ == "Error":
+			attr = curses.color_pair(1)
+		elif self.type_ == "Info":
+			attr = curses.color_pair(2)
+		messages_w.addstr(self.body, attr)
+
 
 def send_username(username):
 	sock.sendall(chr(MsgTypes.OpenConnection).encode() + chr(len(username)).encode() + username.encode())
@@ -48,33 +78,11 @@ def readline(prompt=""):
 	input_w.attroff(curses.A_REVERSE)
 	return line.decode()
 
-class Message:
-	def __init__(self, from_, body):
-		self.from_ = from_
-		self.body = body
-
-class SystemMessage:
-	def __init__(self, type_, body):
-		self.type_ = type_
-		self.body = body
-
 def print_messages():
 	messages_w.move(0, 0)
 	messages_w.clear()
 	for i, msg in enumerate(messages):
-		if type(msg) == SystemMessage:
-			if msg.type_ == "Error":
-				messages_w.attron(curses.color_pair(1))
-				messages_w.addstr(msg.body + "\n")
-				messages_w.attroff(curses.color_pair(1))
-				continue
-
-
-		messages_w.addstr("[ ")
-		messages_w.attron(curses.color_pair(1))
-		messages_w.addstr(msg.from_)
-		messages_w.attroff(curses.color_pair(1))
-		messages_w.addstr(" ] %s\n" % (msg.body))
+		msg.draw_message()
 
 		messages_w.refresh()
 
@@ -88,7 +96,15 @@ def receive_msg():
 
 			msg = sock.recv(1024).decode()
 			messages.append(Message(username, msg))
-			print_messages()
+		elif type_ == MsgTypes.Notification:
+			content_len = struct.unpack("H", sock.recv(2))[0]
+			content = sock.recv(content_len).decode()
+
+			messages.append(SystemMessage("Info", content))
+		else:
+			continue
+
+		print_messages()
 
 def parse_command(cmd):
 	if cmd == "quit":

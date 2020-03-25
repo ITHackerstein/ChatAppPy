@@ -9,6 +9,7 @@ Message structure:
 -- type = 2 (UsernameSet), args = ['username: (1 byte 'size', 'size' bytes username)]
 -- type = 3 (SendMsg), args = ['msg (max 1024 bytes)']
 -- type = 4 (RecvMsg), args = ['username: (1 byte 'size', 'size' bytes username)', 'msg (max 1024 bytes)']
+-- type = 5 (Notification), args = ['content: (2 byte 'size', 'size' content)']
 
 """
 
@@ -18,3 +19,4 @@ class MsgTypes(IntEnum):
 	UsernameSet = 2
 	SendMsg = 3
 	RecvMsg = 4
+	Notification = 5

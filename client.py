@@ -17,6 +17,7 @@ curses.start_color()
 
 curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
 curses.init_pair(2, curses.COLOR_CYAN, curses.COLOR_BLACK)
+curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
 
 twidth, theight = os.get_terminal_size()
 
@@ -24,6 +25,11 @@ messages_w = curses.newwin(theight - 1, twidth, 0, 0)
 input_w = curses.newwin(1, twidth, theight - 1, 0)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+HELP_MSG = """This is the list of commands available:
+-- /users: returns the number of users connected.
+-- /userslist: returns a list of the users connected.
+"""
 
 messages = []
 
@@ -55,6 +61,8 @@ class SystemMessage:
 			attr = curses.color_pair(1)
 		elif self.type_ == "Info":
 			attr = curses.color_pair(2)
+		elif self.type_ == "CmdOutput":
+			attr = curses.color_pair(3)
 		messages_w.addstr(self.body, attr)
 
 
@@ -105,6 +113,24 @@ def receive_msg():
 			content = sock.recv(content_len).decode()
 
 			messages.append(SystemMessage("Info", content))
+		elif type_ == MsgTypes.CmdOutput:
+			cmd_type_size = ord(sock.recv(1))
+			cmd_type = sock.recv(cmd_type_size).decode()
+
+			if cmd_type == "NUsers":
+				n_users = ord(sock.recv(1))
+				messages.append(SystemMessage("CmdOutput", "%d / 255 users connected.\n" % (n_users)))
+			elif cmd_type == "UsersList":
+				n_users = ord(sock.recv(1))
+
+				msg_body = "List of users connected: \n"
+
+				for i in range(n_users):
+					username_size = ord(sock.recv(1))
+					username = sock.recv(username_size).decode()
+
+					msg_body += "- %s\n" % (username)
+				messages.append(SystemMessage("CmdOutput", msg_body))
 		else:
 			continue
 
@@ -114,8 +140,19 @@ def parse_command(cmd):
 	if cmd == "quit":
 		sock.sendall(chr(MsgTypes.CloseConnection).encode())
 		sys.exit(0)
+	elif cmd == "users":
+		cmd_type = "NUsers"
+		cmd_len = chr(len(cmd_type)).encode()
+		sock.sendall(chr(MsgTypes.SendCmd).encode() + cmd_len + cmd_type.encode())
+	elif cmd == "userslist":
+		cmd_type = "UsersList"
+		cmd_len = chr(len(cmd_type)).encode()
+		sock.sendall(chr(MsgTypes.SendCmd).encode() + cmd_len + cmd_type.encode())
+	elif cmd == "help":
+		messages.append(SystemMessage("CmdOutput", HELP_MSG))
+		print_messages()
 	else:
-		body = "'%s' is not a valid command! Type '/help' for a list" % (cmd)
+		body = "'%s' is not a valid command! Type '/help' for a list\n" % (cmd)
 		messages.append(SystemMessage("Error", body))
 		print_messages()
 

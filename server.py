@@ -12,37 +12,45 @@ PORT = int(sys.argv[2]) if len(sys.argv) >= 3 else int(input("Enter the port of 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 connected_devices = []
+n_devices = 0
 
 class Device:
 	def __init__(self, conn):
 		self.conn = conn
 		self.username = ""
+		self.connected = True
 		self.receive_data_t = threading.Thread(name="receive_data", target=self.receive_data)
 		self.receive_data_t.start()
 
 	def receive_data(self):
-		while self.conn.fileno() != -1:
+		global n_devices
+
+		while self.connected:
 			type_ = ord(self.conn.recv(1))
 
 			if type_ == MsgTypes.CloseConnection:
+				self.connected = False
 				print("[{}:{}] Connection closed!".format(*self.conn.getpeername()))
 				self.conn.close()
 
+
 				for device in connected_devices:
-					if device.conn.fileno() == -1:
+					if not device.connected:
 						continue
 
 					content = "%s left the chat!\n" % (self.username)
 					packed_length = struct.pack("H", len(content))
 					device.conn.sendall(chr(MsgTypes.Notification).encode() + packed_length + content.encode())
+					n_devices -= 1
 			elif type_ == MsgTypes.OpenConnection:
 				username_len = ord(self.conn.recv(1))
 				username = self.conn.recv(username_len).decode()
 
 				self.username = "%s#%04d" % (username, randint(0, 9999))
+				self.connected = True
 				self.conn.sendall(chr(MsgTypes.UsernameSet).encode() + chr(len(self.username)).encode() + self.username.encode())
 				for device in connected_devices:
-					if device.conn.fileno() == -1:
+					if not device.connected:
 						continue
 
 					content = "%s joined the chat!\n" % (self.username)
@@ -50,14 +58,30 @@ class Device:
 					device.conn.sendall(chr(MsgTypes.Notification).encode() + packed_length + content.encode())
 
 				print("[{}:{}] Connected with username {}".format(*self.conn.getpeername(), self.username))
+				n_devices += 1
 			elif type_ == MsgTypes.SendMsg:
 				msg = self.conn.recv(1024)
 				if not self.username:
 					continue
 
 				for device in connected_devices:
-					if device.conn.fileno() != -1:
+					if device.connected:
 						device.conn.sendall(chr(MsgTypes.RecvMsg).encode() + chr(len(self.username)).encode() + self.username.encode() + msg)
+			elif type_ == MsgTypes.SendCmd:
+				cmd_size = ord(self.conn.recv(1))
+				cmd = self.conn.recv(cmd_size).decode()
+
+				if cmd == "NUsers":
+					self.conn.sendall(chr(MsgTypes.CmdOutput).encode() + chr(cmd_size).encode() + cmd.encode() + chr(n_devices).encode())
+				elif cmd == "UsersList":
+					msg = b""
+					for device in connected_devices:
+						if not device.connected:
+							continue
+
+						msg += chr(len(device.username)).encode()
+						msg += device.username.encode()
+					self.conn.sendall(chr(MsgTypes.CmdOutput).encode() + chr(cmd_size).encode() + cmd.encode() + chr(n_devices).encode() + msg)
 			else:
 				pass
 

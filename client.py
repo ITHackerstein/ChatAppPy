@@ -4,6 +4,7 @@ import struct
 import threading
 import socket
 import curses
+import time
 from enum import IntEnum
 from msgtypes import MsgTypes
 
@@ -30,9 +31,10 @@ class Message:
 	def __init__(self, from_, body):
 		self.from_ = from_
 		self.body = body
+		self.recvt = time.localtime()
 
 	def draw_message(self):
-		messages_w.addstr("[ ")
+		messages_w.addstr("%s [ " % (time.strftime("%H:%M:%S", self.recvt)))
 		attr = curses.color_pair(0)
 		if self.from_ == my_username:
 			attr = curses.color_pair(1)
@@ -44,8 +46,10 @@ class SystemMessage:
 	def __init__(self, type_, body):
 		self.type_ = type_
 		self.body = body
+		self.recvt = time.localtime()
 
 	def draw_message(self):
+		messages_w.addstr(time.strftime("%H:%M:%S", self.recvt) + " ")
 		attr = curses.color_pair(0)
 		if self.type_ == "Error":
 			attr = curses.color_pair(1)

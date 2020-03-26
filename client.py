@@ -21,7 +21,7 @@ curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
 
 twidth, theight = os.get_terminal_size()
 
-messages_w = curses.newwin(theight - 1, twidth, 0, 0)
+messages_w = curses.newpad(theight * 4, twidth)
 input_w = curses.newwin(1, twidth, theight - 1, 0)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,40 +31,7 @@ HELP_MSG = """This is the list of commands available:
 -- /userslist: returns a list of the users connected.
 """
 
-messages = []
-
-class Message:
-	def __init__(self, from_, body):
-		self.from_ = from_
-		self.body = body
-		self.recvt = time.localtime()
-
-	def draw_message(self):
-		messages_w.addstr("%s [ " % (time.strftime("%H:%M:%S", self.recvt)))
-		attr = curses.color_pair(0)
-		if self.from_ == my_username:
-			attr = curses.color_pair(1)
-		messages_w.addstr(self.from_, attr)
-		messages_w.addstr(" ] %s\n" % (self.body))
-
-
-class SystemMessage:
-	def __init__(self, type_, body):
-		self.type_ = type_
-		self.body = body
-		self.recvt = time.localtime()
-
-	def draw_message(self):
-		messages_w.addstr(time.strftime("%H:%M:%S", self.recvt) + " ")
-		attr = curses.color_pair(0)
-		if self.type_ == "Error":
-			attr = curses.color_pair(1)
-		elif self.type_ == "Info":
-			attr = curses.color_pair(2)
-		elif self.type_ == "CmdOutput":
-			attr = curses.color_pair(3)
-		messages_w.addstr(self.body, attr)
-
+scroll_amt = 0
 
 def send_username(username):
 	sock.sendall(chr(MsgTypes.OpenConnection).encode() + chr(len(username)).encode() + username.encode())
@@ -90,13 +57,41 @@ def readline(prompt=""):
 	input_w.attroff(curses.A_REVERSE)
 	return line.decode()
 
-def print_messages():
-	messages_w.move(0, 0)
-	messages_w.clear()
-	for i, msg in enumerate(messages):
-		msg.draw_message()
+def draw_message(from_, body):
+	global scroll_amt
 
-		messages_w.refresh()
+	messages_w.addstr("%s [ " % (time.strftime("%H:%M:%S")))
+	attr = curses.color_pair(0)
+	if from_ == my_username:
+		attr = curses.color_pair(1)
+	messages_w.addstr(from_, attr)
+	messages_w.addstr(" ] %s\n" % (body))
+
+	cy = messages_w.getyx()[0]
+
+	if cy > theight - 1:
+		scroll_amt = cy - theight + 1
+
+	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+
+def draw_system_message(type_, body):
+	global scroll_amt
+
+	messages_w.addstr(time.strftime("%H:%M:%S") + " ")
+	attr = curses.color_pair(0)
+	if type_ == "Error":
+		attr = curses.color_pair(1)
+	elif type_ == "Info":
+		attr = curses.color_pair(2)
+	elif type_ == "CmdOutput":
+		attr = curses.color_pair(3)
+	messages_w.addstr(body, attr)
+
+	cy = messages_w.getyx()[0]
+	if cy > theight - 1:
+		scroll_amt = cy - theight + 1
+
+	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
 
 def receive_msg():
 	while True:
@@ -107,19 +102,19 @@ def receive_msg():
 			username = sock.recv(username_len).decode()
 
 			msg = sock.recv(1024).decode()
-			messages.append(Message(username, msg))
+			draw_message(username, msg)
 		elif type_ == MsgTypes.Notification:
 			content_len = struct.unpack("H", sock.recv(2))[0]
 			content = sock.recv(content_len).decode()
 
-			messages.append(SystemMessage("Info", content))
+			draw_system_message("Info", content)
 		elif type_ == MsgTypes.CmdOutput:
 			cmd_type_size = ord(sock.recv(1))
 			cmd_type = sock.recv(cmd_type_size).decode()
 
 			if cmd_type == "NUsers":
 				n_users = ord(sock.recv(1))
-				messages.append(SystemMessage("CmdOutput", "%d / 255 users connected.\n" % (n_users)))
+				draw_system_message("CmdOutput", "%d / 255 users connected.\n" % (n_users))
 			elif cmd_type == "UsersList":
 				n_users = ord(sock.recv(1))
 
@@ -130,11 +125,9 @@ def receive_msg():
 					username = sock.recv(username_size).decode()
 
 					msg_body += "- %s\n" % (username)
-				messages.append(SystemMessage("CmdOutput", msg_body))
+				draw_system_message("CmdOutput", msg_body)
 		else:
 			continue
-
-		print_messages()
 
 def parse_command(cmd):
 	if cmd == "quit":
@@ -149,14 +142,10 @@ def parse_command(cmd):
 		cmd_len = chr(len(cmd_type)).encode()
 		sock.sendall(chr(MsgTypes.SendCmd).encode() + cmd_len + cmd_type.encode())
 	elif cmd == "help":
-		messages.append(SystemMessage("CmdOutput", HELP_MSG))
-		print_messages()
+		draw_system_message("CmdOutput", HELP_MSG)
 	else:
 		body = "'%s' is not a valid command! Type '/help' for a list\n" % (cmd)
-		messages.append(SystemMessage("Error", body))
-		print_messages()
-
-		messages_w.refresh()
+		draw_system_message("Error", body)
 
 sock.connect((HOST, PORT))
 my_username = send_username(my_username)
@@ -166,6 +155,9 @@ receive_msg_t.start()
 
 while True:
 	msg = readline(" %s > " % (my_username))
+	if not msg:
+		continue
+
 	if msg[0] == '/':
 		parse_command(msg[1:])
 	else:

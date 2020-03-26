@@ -23,6 +23,8 @@ twidth, theight = os.get_terminal_size()
 
 messages_w = curses.newpad(theight * 4, twidth)
 input_w = curses.newwin(1, twidth, theight - 1, 0)
+input_w.keypad(True)
+curses.noecho()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -42,6 +44,8 @@ def send_username(username):
 	return final.decode()
 
 def readline(prompt=""):
+	global scroll_amt
+
 	input_w.attron(curses.A_REVERSE)
 
 	input_w.addstr(0, 0, " " * (twidth - 1))
@@ -49,13 +53,50 @@ def readline(prompt=""):
 	input_w.addstr(0, 0, prompt)
 	input_w.refresh()
 
-	line = input_w.getstr()
+	line = ""
+	while True:
+		c = input_w.getkey()
+		if c == '\n':
+			break
+
+		if c == '\x08':
+			if len(line) > 0:
+				line = line[:-1]
+				cy, cx = input_w.getyx()
+				input_w.addch(cy, cx - 1, " ")
+				input_w.move(cy, cx - 1)
+			continue
+
+		if c == "KEY_B1" or c == "KEY_LEFT": # Left Arrow
+			# FIXME: Not implemented
+			continue
+		if c == "KEY_A2" or c == "KEY_UP": # Up Arrow
+			if scroll_amt > 0:
+				scroll_amt -= 1
+			messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+			continue
+		if c == "KEY_B3" or c == "KEY_RIGHT": # Right Arrow
+			# FIXME: Not implemented
+			continue
+		if c == "KEY_C2" or c == "KEY_DOWN": # Down Arrow
+			cy = messages_w.getyx()[0]
+			max_scroll_amt = 0
+			if cy > theight - 1:
+				max_scroll_amt = cy - theight + 1
+
+			if scroll_amt < max_scroll_amt:
+				scroll_amt += 1
+				messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+			continue
+
+		input_w.addch(c)
+		line += c
 
 	input_w.clrtoeol()
 	input_w.refresh()
 
 	input_w.attroff(curses.A_REVERSE)
-	return line.decode()
+	return line
 
 def draw_message(from_, body):
 	global scroll_amt
@@ -71,6 +112,7 @@ def draw_message(from_, body):
 
 	if cy > theight - 1:
 		scroll_amt = cy - theight + 1
+	# FIXME: resize the pad if neeeded
 
 	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
 
@@ -87,9 +129,11 @@ def draw_system_message(type_, body):
 		attr = curses.color_pair(3)
 	messages_w.addstr(body, attr)
 
+	scroll_amt = 0
 	cy = messages_w.getyx()[0]
 	if cy > theight - 1:
 		scroll_amt = cy - theight + 1
+	# FIXME: resize the pad if neeeded
 
 	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
 
@@ -146,7 +190,6 @@ def parse_command(cmd):
 	elif cmd == "clear":
 		messages_w.move(0, 0)
 		messages_w.clear()
-		scroll_amt = 0
 		draw_system_message("CmdOutput", "Chat cleared!\n")
 	elif cmd == "help":
 		draw_system_message("CmdOutput", HELP_MSG)

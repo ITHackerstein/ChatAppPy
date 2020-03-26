@@ -130,6 +130,8 @@ def receive_msg():
 			continue
 
 def parse_command(cmd):
+	global scroll_amt
+
 	if cmd == "quit":
 		sock.sendall(chr(MsgTypes.CloseConnection).encode())
 		sys.exit(0)
@@ -141,6 +143,11 @@ def parse_command(cmd):
 		cmd_type = "UsersList"
 		cmd_len = chr(len(cmd_type)).encode()
 		sock.sendall(chr(MsgTypes.SendCmd).encode() + cmd_len + cmd_type.encode())
+	elif cmd == "clear":
+		messages_w.move(0, 0)
+		messages_w.clear()
+		scroll_amt = 0
+		draw_system_message("CmdOutput", "Chat cleared!\n")
 	elif cmd == "help":
 		draw_system_message("CmdOutput", HELP_MSG)
 	else:

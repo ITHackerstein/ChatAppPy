@@ -21,8 +21,10 @@ curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
 
 twidth, theight = os.get_terminal_size()
 
-messages_w = curses.newpad(theight * 4, twidth)
+messages_w = curses.newpad(theight * 4, twidth - 1)
 input_w = curses.newwin(1, twidth, theight - 1, 0)
+scrollbar_w = curses.newwin(theight - 1, 1, 0, twidth - 1)
+
 input_w.keypad(True)
 curses.noecho()
 
@@ -34,6 +36,10 @@ HELP_MSG = """This is the list of commands available:
 """
 
 scroll_amt = 0
+max_scroll_amt = 0
+
+def clamp(n, min_, max_):
+	return max(min(n, max_), min_)
 
 def send_username(username):
 	sock.sendall(chr(MsgTypes.OpenConnection).encode() + chr(len(username)).encode() + username.encode())
@@ -42,6 +48,27 @@ def send_username(username):
 	size = ord(sock.recv(1))
 	final = sock.recv(size)
 	return final.decode()
+
+def refresh_messages():
+	global scroll_amt
+	global max_scroll_amt
+
+
+	if max_scroll_amt == 0:
+		start = 0
+		count = theight - 2
+	else:
+		v = clamp(scroll_amt, 0, max_scroll_amt - 1)
+		start = clamp(int(v / max_scroll_amt * (theight - 1)), 0, theight - 2 - 3)
+		count = clamp(int((theight - 2) / max_scroll_amt), 3, theight - 2)
+
+	scrollbar_w.addstr(0, 0, " " * (theight - 2))
+	scrollbar_w.move(start, 0)
+	scrollbar_w.addch("^")
+	scrollbar_w.addstr(" " * (count - 2), curses.A_REVERSE)
+	scrollbar_w.addch("v")
+	scrollbar_w.refresh()
+	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 2)
 
 def readline(prompt=""):
 	global scroll_amt
@@ -70,23 +97,23 @@ def readline(prompt=""):
 		if c == "KEY_B1" or c == "KEY_LEFT": # Left Arrow
 			# FIXME: Not implemented
 			continue
+
 		if c == "KEY_A2" or c == "KEY_UP": # Up Arrow
 			if scroll_amt > 0:
 				scroll_amt -= 1
-			messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+
+			refresh_messages()
 			continue
+
 		if c == "KEY_B3" or c == "KEY_RIGHT": # Right Arrow
 			# FIXME: Not implemented
 			continue
-		if c == "KEY_C2" or c == "KEY_DOWN": # Down Arrow
-			cy = messages_w.getyx()[0]
-			max_scroll_amt = 0
-			if cy > theight - 1:
-				max_scroll_amt = cy - theight + 1
 
+		if c == "KEY_C2" or c == "KEY_DOWN": # Down Arrow
 			if scroll_amt < max_scroll_amt:
 				scroll_amt += 1
-				messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+
+			refresh_messages()
 			continue
 
 		input_w.addch(c)
@@ -100,6 +127,7 @@ def readline(prompt=""):
 
 def draw_message(from_, body):
 	global scroll_amt
+	global max_scroll_amt
 
 	messages_w.addstr("%s [ " % (time.strftime("%H:%M:%S")))
 	attr = curses.color_pair(0)
@@ -108,16 +136,19 @@ def draw_message(from_, body):
 	messages_w.addstr(from_, attr)
 	messages_w.addstr(" ] %s\n" % (body))
 
+	max_scroll_amt = 0
+	scroll_amt = 0
 	cy = messages_w.getyx()[0]
-
 	if cy > theight - 1:
+		max_scroll_amt = cy - theight + 1
 		scroll_amt = cy - theight + 1
 	# FIXME: resize the pad if neeeded
 
-	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+	refresh_messages()
 
 def draw_system_message(type_, body):
 	global scroll_amt
+	global max_scroll_amt
 
 	messages_w.addstr(time.strftime("%H:%M:%S") + " ")
 	attr = curses.color_pair(0)
@@ -129,13 +160,15 @@ def draw_system_message(type_, body):
 		attr = curses.color_pair(3)
 	messages_w.addstr(body, attr)
 
+	max_scroll_amt = 0
 	scroll_amt = 0
 	cy = messages_w.getyx()[0]
 	if cy > theight - 1:
+		max_scroll_amt = cy - theight + 1
 		scroll_amt = cy - theight + 1
 	# FIXME: resize the pad if neeeded
 
-	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 1)
+	refresh_messages()
 
 def receive_msg():
 	while True:

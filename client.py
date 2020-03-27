@@ -26,6 +26,8 @@ input_w = curses.newwin(1, twidth, theight - 1, 0)
 scrollbar_w = curses.newwin(theight - 1, 1, 0, twidth - 1)
 
 input_w.keypad(True)
+input_w.bkgdset(" ", curses.A_REVERSE)
+input_w.clrtoeol()
 curses.noecho()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,7 +66,7 @@ def refresh_messages():
 
 	scrollbar_w.move(0, 0)
 	scrollbar_w.clrtobot()
-	scrollbar_w.insstr(start, 0, "\u25b2")
+	scrollbar_w.addstr(start, 0, "\u25b2")
 	scrollbar_w.addstr(start + 1, 0, "\u2591" * (count - 2), curses.A_REVERSE)
 	scrollbar_w.insstr(start + count - 1, 0, "\u25bc")
 	scrollbar_w.refresh()
@@ -73,29 +75,27 @@ def refresh_messages():
 def readline(prompt=""):
 	global scroll_amt
 
-	input_w.attron(curses.A_REVERSE)
-
-	input_w.insstr(0, 0, " " * input_w.getmaxyx()[1])
-
 	input_w.addstr(0, 0, prompt)
 	input_w.refresh()
 
-	line = ""
+	line = []
+	cursor_position = 0
 	while True:
 		c = input_w.getkey()
 		if c == '\n':
 			break
 
 		if c == '\x08':
-			if len(line) > 0:
-				line = line[:-1]
-				cy, cx = input_w.getyx()
-				input_w.addch(cy, cx - 1, " ")
-				input_w.move(cy, cx - 1)
+			if len(line) > 0 and cursor_position > 0:
+				line.pop(cursor_position - 1)
+				input_w.delch(0, input_w.getyx()[1] - 1)
+				cursor_position -= 1
 			continue
 
 		if c == "KEY_B1" or c == "KEY_LEFT": # Left Arrow
-			# FIXME: Not implemented
+			if cursor_position > 0:
+				cursor_position -= 1
+				input_w.move(0, input_w.getyx()[1] - 1)
 			continue
 
 		if c == "KEY_A2" or c == "KEY_UP": # Up Arrow
@@ -106,7 +106,9 @@ def readline(prompt=""):
 			continue
 
 		if c == "KEY_B3" or c == "KEY_RIGHT": # Right Arrow
-			# FIXME: Not implemented
+			if cursor_position < len(line):
+				cursor_position += 1
+				input_w.move(0, input_w.getyx()[1] + 1)
 			continue
 
 		if c == "KEY_C2" or c == "KEY_DOWN": # Down Arrow
@@ -119,14 +121,16 @@ def readline(prompt=""):
 		if len(c) > 1:
 			continue
 
-		input_w.addch(c)
-		line += c
+		input_w.insch(c)
+		input_w.move(0, input_w.getyx()[1] + 1)
+		line.insert(cursor_position, c)
+		cursor_position += 1
 
+	input_w.move(0, 0)
 	input_w.clrtoeol()
 	input_w.refresh()
 
-	input_w.attroff(curses.A_REVERSE)
-	return line
+	return "".join(line)
 
 def draw_message(from_, body):
 	global scroll_amt

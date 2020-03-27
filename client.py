@@ -53,20 +53,20 @@ def refresh_messages():
 	global scroll_amt
 	global max_scroll_amt
 
-
 	if max_scroll_amt == 0:
 		start = 0
-		count = theight - 2
+		count = scrollbar_w.getmaxyx()[0]
 	else:
+		sh = scrollbar_w.getmaxyx()[0]
 		v = clamp(scroll_amt, 0, max_scroll_amt - 1)
-		start = clamp(int(v / max_scroll_amt * (theight - 1)), 0, theight - 2 - 3)
-		count = clamp(int((theight - 2) / max_scroll_amt), 3, theight - 2)
+		start = clamp(round(v / max_scroll_amt * sh), 0, sh - 3)
+		count = clamp(round(sh / max_scroll_amt), 3, sh)
 
-	scrollbar_w.addstr(0, 0, " " * (theight - 2))
-	scrollbar_w.move(start, 0)
-	scrollbar_w.addstr("\u25b2")
-	scrollbar_w.addstr("\u2591" * (count - 2), curses.A_REVERSE)
-	scrollbar_w.addstr("\u25bc")
+	scrollbar_w.move(0, 0)
+	scrollbar_w.clrtobot()
+	scrollbar_w.insstr(start, 0, "\u25b2")
+	scrollbar_w.addstr(start + 1, 0, "\u2591" * (count - 2), curses.A_REVERSE)
+	scrollbar_w.insstr(start + count - 1, 0, "\u25bc")
 	scrollbar_w.refresh()
 	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 2)
 
@@ -75,7 +75,7 @@ def readline(prompt=""):
 
 	input_w.attron(curses.A_REVERSE)
 
-	input_w.addstr(0, 0, " " * (twidth - 1))
+	input_w.insstr(0, 0, " " * input_w.getmaxyx()[1])
 
 	input_w.addstr(0, 0, prompt)
 	input_w.refresh()

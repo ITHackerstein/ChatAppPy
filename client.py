@@ -64,9 +64,9 @@ def refresh_messages():
 
 	scrollbar_w.addstr(0, 0, " " * (theight - 2))
 	scrollbar_w.move(start, 0)
-	scrollbar_w.addch("^")
-	scrollbar_w.addstr(" " * (count - 2), curses.A_REVERSE)
-	scrollbar_w.addch("v")
+	scrollbar_w.addstr("\u028c")
+	scrollbar_w.addstr("\u2591" * (count - 2), curses.A_REVERSE)
+	scrollbar_w.addstr("v")
 	scrollbar_w.refresh()
 	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 2)
 

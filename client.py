@@ -90,41 +90,35 @@ def readline(prompt=""):
 				line.pop(cursor_position - 1)
 				input_w.delch(0, input_w.getyx()[1] - 1)
 				cursor_position -= 1
-			continue
-
-		if c == "KEY_B1" or c == "KEY_LEFT": # Left Arrow
+		elif c == "KEY_B1" or c == "KEY_LEFT": # Left Arrow
 			if cursor_position > 0:
 				cursor_position -= 1
 				input_w.move(0, input_w.getyx()[1] - 1)
-			continue
-
-		if c == "KEY_A2" or c == "KEY_UP": # Up Arrow
+		elif c == "KEY_A2" or c == "KEY_UP": # Up Arrow
 			if scroll_amt > 0:
 				scroll_amt -= 1
-
-			refresh_messages()
-			continue
-
-		if c == "KEY_B3" or c == "KEY_RIGHT": # Right Arrow
+				refresh_messages()
+		elif c == "KEY_B3" or c == "KEY_RIGHT": # Right Arrow
 			if cursor_position < len(line):
 				cursor_position += 1
 				input_w.move(0, input_w.getyx()[1] + 1)
-			continue
-
-		if c == "KEY_C2" or c == "KEY_DOWN": # Down Arrow
+		elif c == "KEY_C2" or c == "KEY_DOWN": # Down Arrow
 			if scroll_amt < max_scroll_amt:
 				scroll_amt += 1
-
+				refresh_messages()
+		elif c == "KEY_A3" or c == "KEY_PPAGE": # Page Up
+			scroll_amt = 0
 			refresh_messages()
+		elif c == "KEY_C3" or c == "KEY_NPAGE": # Pade Down
+			scroll_amt = max_scroll_amt
+			refresh_messages()
+		elif len(c) > 1:
 			continue
-
-		if len(c) > 1:
-			continue
-
-		input_w.insch(c)
-		input_w.move(0, input_w.getyx()[1] + 1)
-		line.insert(cursor_position, c)
-		cursor_position += 1
+		else:
+			input_w.insch(c)
+			input_w.move(0, input_w.getyx()[1] + 1)
+			line.insert(cursor_position, c)
+			cursor_position += 1
 
 	input_w.move(0, 0)
 	input_w.clrtoeol()

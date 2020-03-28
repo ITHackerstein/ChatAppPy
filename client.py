@@ -55,20 +55,19 @@ def refresh_messages():
 	global scroll_amt
 	global max_scroll_amt
 
+	sh = scrollbar_w.getmaxyx()[0]
 	if max_scroll_amt == 0:
-		start = 0
-		count = scrollbar_w.getmaxyx()[0]
+		start = 1
+		count = sh - 2
 	else:
-		sh = scrollbar_w.getmaxyx()[0]
-		v = clamp(scroll_amt, 0, max_scroll_amt - 1)
-		start = clamp(round(v / max_scroll_amt * sh), 0, sh - 3)
-		count = clamp(round(sh / max_scroll_amt), 3, sh)
+		count = clamp(round((sh - 2) * sh / messages_w.getyx()[0]), 1, sh - 2)
+		start = clamp(round((sh - count - 2) / max_scroll_amt * scroll_amt + 1), 1, sh - 1)
 
 	scrollbar_w.move(0, 0)
 	scrollbar_w.clrtobot()
-	scrollbar_w.addstr(start, 0, "\u25b2")
-	scrollbar_w.addstr(start + 1, 0, "\u2591" * (count - 2), curses.A_REVERSE)
-	scrollbar_w.insstr(start + count - 1, 0, "\u25bc")
+	scrollbar_w.addstr(start - 1, 0, "\u25b2")
+	scrollbar_w.addstr(start, 0, "\u2591" * count, curses.A_REVERSE)
+	scrollbar_w.insstr(start + count, 0, "\u25bc")
 	scrollbar_w.refresh()
 	messages_w.refresh(scroll_amt, 0, 0, 0, theight - 2, twidth - 2)
 

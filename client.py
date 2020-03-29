@@ -8,9 +8,35 @@ import time
 from enum import IntEnum
 from msgtypes import MsgTypes
 
-my_username = sys.argv[1] if len(sys.argv) >= 2 else input("Enter your username: ")
-HOST = sys.argv[2] if len(sys.argv) >= 4 else input("Enter the address of the server: ")
-PORT = int(sys.argv[3]) if len(sys.argv) >= 4 else int(input("Enter the port of the server: "))
+
+if len(sys.argv) >= 2:
+	my_username = sys.argv[1]
+	if len(my_username) > 250:
+		print("The maximum length of the username is 250 characters!")
+		sys.exit(1)
+else:
+	while True:
+		my_username = input("Type your username: ")
+		if len(my_username) > 250:
+			print("The maximum length of the username is 250 characters!")
+		else:
+			break
+
+if len(sys.argv) >= 4:
+	HOST = sys.argv[2]
+	try:
+		PORT = int(sys.argv[3])
+	except:
+		print("Invalid port '%s'!" % (sys.argv[3]))
+		sys.exit(1)
+else:
+	HOST = input("Enter the address: ")
+	while True:
+		try:
+			PORT = int(input("Enter the port: "))
+			break
+		except:
+			print("Invalid port!")
 
 curses.initscr()
 curses.start_color()
@@ -35,6 +61,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 HELP_MSG = """This is the list of commands available:
 -- /users: returns the number of users connected.
 -- /userslist: returns a list of the users connected.
+-- /clear: clears the chat.
 """
 
 scroll_amt = 0
@@ -46,7 +73,7 @@ def clamp(n, min_, max_):
 def send_username(username):
 	sock.sendall(chr(MsgTypes.OpenConnection).encode() + chr(len(username)).encode() + username.encode())
 	type_ = ord(sock.recv(1))
-	assert type_ == MsgTypes.UsernameSet
+	assert type_ == MsgTypes.UsernameSet, "Invalid server!"
 	size = ord(sock.recv(1))
 	final = sock.recv(size)
 	return final.decode()
@@ -128,7 +155,6 @@ def readline(prompt=""):
 				input_w.resize(1, size + twidth)
 
 			input_w.insch(c)
-			print(cp + len(line) - cursor_position + 1)
 			input_w.move(0, cp + len(line) - cursor_position + 1)
 			input_w.clrtoeol()
 			input_w.move(0, cp + 1)
@@ -282,8 +308,12 @@ receive_msg_t.start()
 
 while True:
 	msg = readline(" %s > " % (my_username))
+
 	if not msg:
 		continue
+	if len(msg) > 1024:
+
+		draw_system_message("Error", "The maximum length of a message is 1024 characters!\n")
 
 	if msg[0] == '/':
 		parse_command(msg[1:])

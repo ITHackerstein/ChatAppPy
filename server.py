@@ -7,8 +7,24 @@ from enum import IntEnum
 from msgtypes import MsgTypes
 from random import randint
 
-HOST = sys.argv[1] if len(sys.argv) >= 3 else input("Enter the address of the server: ")
-PORT = int(sys.argv[2]) if len(sys.argv) >= 3 else int(input("Enter the port of the server: "))
+MAX_DEVICES = 255
+
+if len(sys.argv) >= 3:
+	HOST = sys.argv[1]
+	try:
+		PORT = int(sys.argv[2])
+	except:
+		print("Invalid port '%s'!" % (sys.argv[2]))
+		sys.exit(1)
+else:
+	HOST = input("Enter the address: ")
+	while True:
+		try:
+			PORT = int(input("Enter the port: "))
+			break
+		except:
+			print("Invalid port!")
+
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 connected_devices = []
@@ -89,6 +105,8 @@ class Device:
 def get_connections():
 	while True:
 		conn, addr = sock.accept()
+		if n_devices >= MAX_DEVICES:
+			conn.close()
 		connected_devices.append(Device(conn))
 
 sock.bind((HOST, PORT))

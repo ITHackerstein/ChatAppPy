@@ -21,8 +21,8 @@ curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
 
 twidth, theight = os.get_terminal_size()
 
-messages_w = curses.newpad(theight * 4, twidth - 1)
-input_w = curses.newwin(1, twidth, theight - 1, 0)
+messages_w = curses.newpad(theight, twidth - 1)
+input_w = curses.newpad(1, twidth)
 scrollbar_w = curses.newwin(theight - 1, 1, 0, twidth - 1)
 
 input_w.keypad(True)
@@ -73,18 +73,24 @@ def refresh_messages():
 
 def readline(prompt=""):
 	global scroll_amt
+	global max_scroll_amt
 
+	input_w.move(0, 0)
+	input_w.clrtoeol()
 	input_w.addstr(0, 0, prompt)
-	input_w.refresh()
+	input_w.refresh(0, 0, theight - 1, 0, theight - 1, twidth - 1)
 
 	line = []
 	cursor_position = 0
+	hscroll = 0
 	while True:
 		c = input_w.getkey()
 		if c == '\n':
 			break
 
-		if c == '\x08':
+		old_cp = input_w.getyx()[1]
+
+		if c == '\x08': # Backspace
 			if len(line) > 0 and cursor_position > 0:
 				line.pop(cursor_position - 1)
 				input_w.delch(0, input_w.getyx()[1] - 1)
@@ -113,19 +119,37 @@ def readline(prompt=""):
 			refresh_messages()
 		elif len(c) > 1:
 			continue
+		elif ord(c) not in range(32, 127):
+			continue
 		else:
+			cp = input_w.getyx()[1]
+			size = input_w.getmaxyx()[1]
+			if cp + len(line) - cursor_position + 1 >= size:
+				input_w.resize(1, size + twidth)
+
 			input_w.insch(c)
-			input_w.move(0, input_w.getyx()[1] + 1)
+			print(cp + len(line) - cursor_position + 1)
+			input_w.move(0, cp + len(line) - cursor_position + 1)
+			input_w.clrtoeol()
+			input_w.move(0, cp + 1)
+
 			line.insert(cursor_position, c)
 			cursor_position += 1
 
-	input_w.move(0, 0)
-	input_w.clrtoeol()
-	input_w.refresh()
+		new_cp = input_w.getyx()[1]
+
+		diff = new_cp // twidth - old_cp // twidth
+
+		if diff < 0:
+			hscroll -= 1
+		elif diff > 0:
+			hscroll += 1
+
+		input_w.refresh(0, hscroll * twidth, theight - 1, 0, theight - 1, twidth - 1)
 
 	return "".join(line)
 
-def draw_message(from_, body):
+def _draw_message(from_, body):
 	global scroll_amt
 	global max_scroll_amt
 
@@ -142,11 +166,10 @@ def draw_message(from_, body):
 	if cy > theight - 1:
 		max_scroll_amt = cy - theight + 1
 		scroll_amt = cy - theight + 1
-	# FIXME: resize the pad if neeeded
 
 	refresh_messages()
 
-def draw_system_message(type_, body):
+def _draw_system_message(type_, body):
 	global scroll_amt
 	global max_scroll_amt
 
@@ -166,9 +189,30 @@ def draw_system_message(type_, body):
 	if cy > theight - 1:
 		max_scroll_amt = cy - theight + 1
 		scroll_amt = cy - theight + 1
-	# FIXME: resize the pad if neeeded
 
 	refresh_messages()
+
+def draw_message(from_, body):
+	while True:
+		try:
+			_draw_message(from_, body)
+			break
+		except:
+			old_size = messages_w.getmaxyx()
+			messages_w.resize(old_size[0] + 1, old_size[1])
+			old_cursor = messages_w.getyx()[0]
+			messages_w.move(old_cursor, 0)
+
+def draw_system_message(type_, body):
+	while True:
+		try:
+			_draw_system_message(type_, body)
+			break
+		except:
+			old_size = messages_w.getmaxyx()
+			messages_w.resize(old_size[0] + 1, old_size[1])
+			old_cursor = messages_w.getyx()[0]
+			messages_.w.move(old_cursor, 0)
 
 def receive_msg():
 	while True:

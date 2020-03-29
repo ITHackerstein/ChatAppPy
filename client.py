@@ -144,6 +144,12 @@ def readline(prompt=""):
 		elif c == "KEY_C3" or c == "KEY_NPAGE": # Pade Down
 			scroll_amt = max_scroll_amt
 			refresh_messages()
+		elif c == "KEY_A1" or c == "KEY_HOME": # Home Key
+			input_w.move(0, input_w.getyx()[1] - cursor_position)
+			cursor_position = 0
+		elif c == "KEY_C1" or c == "KEY_END": # End Key
+			input_w.move(0, input_w.getyx()[1] + len(line) - cursor_position)
+			cursor_position = len(line)
 		elif len(c) > 1:
 			continue
 		elif ord(c) not in range(32, 127):

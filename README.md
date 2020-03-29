@@ -5,6 +5,9 @@
 This is a basic chat app in Python. It can manage a maximum of 255 devices connected and it uses the ```socket``` Python library.
 The client part uses the ```curses``` Python library to manage three different windows that are the messages window, the input window and the scrollbar window.
 
+## Required modules
+To run the 'client.py' script you must install ```curses``` or if you are on Windows ```windows-curses```.
+
 ## Usage
 
 ### Server

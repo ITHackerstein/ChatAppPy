@@ -283,8 +283,6 @@ def receive_msg():
 			continue
 
 def parse_command(cmd):
-	global scroll_amt
-
 	if cmd == "quit":
 		sock.sendall(chr(MsgTypes.CloseConnection).encode())
 		sys.exit(0)

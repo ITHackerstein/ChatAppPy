@@ -33,3 +33,13 @@ Here's what you can do in the client:
 - Home/End key: move the input cursor to the far left/far right.
 
 You can type also some commands. Try typing '/help' for a list of commands you can send.
+
+## Binaries
+
+### Downloading the binaries
+
+You can download the binaries from the [Releases](https://github.com/ITHackerstein/ChatAppPy/releases) tab in GitHub.
+
+### Building the binaries
+
+You can also build the binaries by yourself using the 'build_binaries' scripts. The '.cmd' one is for Windows and the '.sh' one is for Linux

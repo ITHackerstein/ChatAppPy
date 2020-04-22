@@ -244,7 +244,7 @@ def draw_system_message(type_, body):
 			old_size = messages_w.getmaxyx()
 			messages_w.resize(old_size[0] + 1, old_size[1])
 			old_cursor = messages_w.getyx()[0]
-			messages_.w.move(old_cursor, 0)
+			messages_w.move(old_cursor, 0)
 
 def receive_msg():
 	while True:
